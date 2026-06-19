@@ -18,6 +18,8 @@ public class PlayerController : MonoBehaviour
     private bool dragging;
     private bool isGrounded;
 
+    public bool IsDragging => dragging;
+
     private void Start()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -31,10 +33,7 @@ public class PlayerController : MonoBehaviour
 
     private void CalculateDistance()
     {
-        Distance = Mathf.Max(
-            0,
-            Mathf.FloorToInt(transform.position.y / 2f)
-        );
+        Distance = Mathf.Max(0,Mathf.FloorToInt(transform.position.y / 2f));
     }
 
     private void HandleInput()
@@ -42,8 +41,14 @@ public class PlayerController : MonoBehaviour
         if (!isGrounded)
             return;
 
+        if (Camera.main == null)
+            return;
+
+        Vector3 screenPos = Input.mousePosition;
+        screenPos.z = Mathf.Abs(Camera.main.transform.position.z);
+
         Vector2 pointerPos =
-            Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            Camera.main.ScreenToWorldPoint(screenPos);
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -68,6 +73,22 @@ public class PlayerController : MonoBehaviour
     {
         Vector2 dragVector = dragStart - dragCurrent;
 
+        float dragDistance =Mathf.Clamp(dragVector.magnitude,0f,maxDragDistance);
+
+        float jumpForce =Mathf.Lerp(minJumpForce,maxJumpForce,dragDistance / maxDragDistance);
+
+        rb.linearVelocity = Vector2.zero;
+
+        rb.AddForce(
+            dragVector.normalized * jumpForce,
+            ForceMode2D.Impulse
+        );
+    }
+
+    public Vector2 GetPredictedVelocity()
+    {
+        Vector2 dragVector = dragStart - dragCurrent;
+
         float dragDistance =
             Mathf.Clamp(
                 dragVector.magnitude,
@@ -82,12 +103,7 @@ public class PlayerController : MonoBehaviour
                 dragDistance / maxDragDistance
             );
 
-        rb.linearVelocity = Vector2.zero;
-
-        rb.AddForce(
-            dragVector.normalized * jumpForce,
-            ForceMode2D.Impulse
-        );
+        return dragVector.normalized * jumpForce;
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
